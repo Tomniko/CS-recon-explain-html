@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Compressed Sensing para MRI · una ruta de aprendizaje interactiva</title>
+<meta name="description" content="Explicación interactiva del Compressed Sensing aplicado a la resonancia magnética (MRI): sparsity, muestreo incoherente y reconstrucción no lineal, paso a paso y con demos en vivo." />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ===================== NAV DE PROGRESO ===================== -->
+<nav id="rail">
+  <a class="brand" href="#top">CS·MRI</a>
+  <ol id="steps">
+    <li><a href="#paso1" data-step="paso1"><b>1</b><span>El problema</span></a></li>
+    <li><a href="#paso2" data-step="paso2"><b>2</b><span>Sparsity</span></a></li>
+    <li><a href="#paso3" data-step="paso3"><b>3</b><span>Incoherencia</span></a></li>
+    <li><a href="#paso4" data-step="paso4"><b>4</b><span>Recon. ℓ₁</span></a></li>
+    <li><a href="#paso5" data-step="paso5"><b>5</b><span>CS-MRI en vivo</span></a></li>
+    <li><a href="#mates" data-step="mates"><b>∑</b><span>Las mates</span></a></li>
+  </ol>
+  <div id="railprog"></div>
+</nav>
+
+<main class="wrap" id="top">
+
+  <!-- ===================== HERO ===================== -->
+  <header class="hero">
+    <p class="kicker">Reconstrucción de imágenes · resonancia magnética</p>
+    <h1>Compressed&nbsp;Sensing<span class="dim"> para </span>MRI</h1>
+    <p class="lead">
+      ¿Y si pudieras reconstruir una imagen midiendo <b>mucho menos</b> de lo que dicta el teorema de
+      Nyquist? Eso es el <b>compressed sensing</b> (muestreo comprimido): la idea que permite acelerar
+      la resonancia magnética <b>2×, 4× o más</b> sin perder diagnóstico. Esta página es una
+      <b>ruta de aprendizaje</b> con demos en vivo —arrastra, mueve y reconstruye tú mismo.
+    </p>
+
+    <div class="hero-demo card">
+      <div class="hero-reveal" id="heroReveal">
+        <canvas class="hero-cv" id="heroCS" width="256" height="256"></canvas>
+        <div class="hero-top" id="heroTop">
+          <canvas class="hero-cv" id="heroZF" width="256" height="256"></canvas>
+        </div>
+        <div class="hero-handle" id="heroHandle"><span>‹ ›</span></div>
+        <div class="hero-tag left">Submuestreo 4× · <b>relleno con ceros</b></div>
+        <div class="hero-tag right"><b>Compressed sensing</b></div>
+      </div>
+      <p class="hero-cap">
+        Misma adquisición (sólo el <b>25%</b> del k-espacio). A la izquierda, la reconstrucción ingenua;
+        a la derecha, compressed sensing. <b>Arrastra el divisor.</b>
+        Cerebro: 7T <i>ex vivo</i>, 100&nbsp;µm — dominio público (CC0).
+      </p>
+    </div>
+
+    <a class="cta" href="#paso1">Empezar la ruta ↓</a>
+    <p class="loadnote" id="loadnote">Cargando imágenes y motor de FFT…</p>
+  </header>
+
+  <!-- ===================== PASO 1 — EL PROBLEMA ===================== -->
+  <section class="step" id="paso1">
+    <div class="step-head"><span class="step-no">1</span>
+      <h2>La MRI mide en el <em>k-espacio</em>, y eso lleva tiempo</h2></div>
+    <div class="step-grid">
+      <div class="prose">
+        <p>Un escáner de resonancia no fotografía el cuerpo: <b>mide la transformada de Fourier de la imagen</b>,
+        el llamado <b>k-espacio</b>. Cada punto del k-espacio es una frecuencia espacial; el <b>centro</b> guarda
+        el contraste general y los <b>bordes</b> guardan el detalle fino.</p>
+        <p>El problema: el k-espacio se recorre <b>poco a poco</b> (línea a línea), y cada línea cuesta tiempo.
+        El teorema de muestreo de <b>Nyquist</b> dice que para no tener <i>aliasing</i> hay que llenarlo entero.
+        <b>Más líneas ⇒ más resolución, pero también más minutos</b> dentro del tubo.</p>
+        <p>La tentación ingenua: medir sólo el centro (las bajas frecuencias). Pruébalo con el control:
+        verás que ganas velocidad pero <b>pierdes nitidez</b> — se vuelve borroso. Tirar de información sin más
+        no funciona. Necesitamos algo más astuto.</p>
+        <div class="callout">
+          <b>Idea clave.</b> El tiempo de escaneo es (aprox.) proporcional al número de líneas de k-espacio
+          que adquieres. Reducirlas a la mitad ≈ reducir el tiempo a la mitad.
+        </div>
+      </div>
+      <div class="viz">
+        <div class="seg" id="s1-imgsel" data-group></div>
+        <div class="cv-row">
+          <figure><canvas id="s1-img" width="256" height="256"></canvas><figcaption>Imagen</figcaption></figure>
+          <figure><canvas id="s1-kspace" width="256" height="256"></canvas><figcaption>k-espacio (log·magnitud)</figcaption></figure>
+          <figure><canvas id="s1-recon" width="256" height="256"></canvas><figcaption id="s1-recon-cap">Reconstruida</figcaption></figure>
+        </div>
+        <div class="ctrl">
+          <div class="lab"><span class="name">Fracción del k-espacio adquirida (sólo el centro)</span>
+            <span class="val" id="s1-frac-val">100%</span></div>
+          <input id="s1-frac" type="range" min="2" max="100" step="1" value="100" />
+        </div>
+        <div class="metrics">
+          <div class="metric"><span id="s1-speed">1.0×</span><small>aceleración</small></div>
+          <div class="metric"><span id="s1-psnr">∞ dB</span><small>PSNR vs. original</small></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== PASO 2 — SPARSITY ===================== -->
+  <section class="step" id="paso2">
+    <div class="step-head"><span class="step-no">2</span>
+      <h2>Ingrediente 1: las imágenes son <em>sparse</em> (comprimibles)</h2></div>
+    <div class="step-grid">
+      <div class="prose">
+        <p>Aquí está la primera grieta en el muro de Nyquist. Una imagen médica <b>no</b> es ruido: tiene
+        estructura. Si la pasamos a una base adecuada —por ejemplo <b>wavelets</b>— casi todos los coeficientes
+        son <b>diminutos</b>. La imagen "vive" en unos pocos coeficientes grandes: es <b>sparse</b>.</p>
+        <p>Esto es exactamente lo que hace JPEG-2000 al comprimir. Mueve el control para <b>quedarte sólo con
+        el X% de coeficientes más grandes</b> y tirar el resto: la imagen apenas cambia. El mapa de la derecha
+        muestra los coeficientes wavelet (casi todo negro = casi todo cero).</p>
+        <p>La pregunta incómoda que lanzó el compressed sensing:
+        <b>si vamos a tirar el 90% de la información al comprimir, ¿por qué molestarnos en medirla?</b>
+        ¿Podemos muestrear ya "comprimido"?</p>
+        <div class="callout">
+          <b>Sparsity.</b> Existe una transformada Ψ (wavelets, diferencias finitas…) en la que la imagen
+          se representa con muy pocos coeficientes no nulos. Es el primer requisito del CS según
+          <a href="#refs">Lustig <i>et al.</i> (2007)</a>.
+        </div>
+      </div>
+      <div class="viz">
+        <div class="seg" id="s2-imgsel" data-group></div>
+        <div class="cv-row">
+          <figure><canvas id="s2-img" width="256" height="256"></canvas><figcaption>Reconstruida con los mayores coef.</figcaption></figure>
+          <figure><canvas id="s2-wav" width="256" height="256"></canvas><figcaption>Coeficientes wavelet (Haar)</figcaption></figure>
+        </div>
+        <div class="ctrl">
+          <div class="lab"><span class="name">Coeficientes conservados (los más grandes)</span>
+            <span class="val" id="s2-keep-val">100%</span></div>
+          <input id="s2-keep" type="range" min="0" max="100" step="1" value="100" />
+        </div>
+        <div class="metrics">
+          <div class="metric"><span id="s2-dropped">0%</span><small>coef. descartados</small></div>
+          <div class="metric"><span id="s2-psnr">∞ dB</span><small>PSNR vs. original</small></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== PASO 3 — INCOHERENCIA ===================== -->
+  <section class="step" id="paso3">
+    <div class="step-head"><span class="step-no">3</span>
+      <h2>Ingrediente 2: submuestrear de forma <em>incoherente</em></h2></div>
+    <div class="step-grid">
+      <div class="prose">
+        <p>Si vamos a saltarnos líneas del k-espacio, <b>cómo</b> nos las saltamos lo cambia todo.</p>
+        <p><b>Regular</b> (una sí, una no): los errores se concentran en <b>copias fantasma</b> nítidas
+        de la imagen (<i>aliasing</i> coherente). Imposible distinguirlas de la anatomía real.</p>
+        <p><b>Aleatorio / densidad variable</b>: el error se reparte como un <b>ruido tenue</b> por toda la
+        imagen (artefacto <b>incoherente</b>). Y el ruido difuso <b>sí</b> se puede quitar después, porque no
+        se parece a una imagen sparse.</p>
+        <p>Mira la <b>respuesta a un punto</b> (PSF): el pico central es la señal; lo de alrededor es la
+        "contaminación" que genera el submuestreo. Con muestreo aleatorio es un fondo plano de ruido; con
+        muestreo regular son réplicas afiladas. Esta figura es el corazón del análisis de
+        <a href="#refs">Lustig <i>et al.</i></a></p>
+        <div class="callout">
+          <b>Incoherencia.</b> El submuestreo debe convertir el <i>aliasing</i> en algo parecido al ruido.
+          En la práctica: <b>muestreo aleatorio con densidad variable</b> (más denso en el centro del k-espacio).
+        </div>
+      </div>
+      <div class="viz">
+        <div class="seg" id="s3-imgsel" data-group></div>
+        <div class="seg" id="s3-masksel" data-group></div>
+        <div class="ctrl">
+          <div class="lab"><span class="name">Aceleración (R = cuánto submuestreamos)</span>
+            <span class="val" id="s3-accel-val">4×</span></div>
+          <input id="s3-accel" type="range" min="2" max="8" step="1" value="4" />
+        </div>
+        <div class="cv-row three">
+          <figure><canvas id="s3-mask" width="256" height="256"></canvas><figcaption>Máscara sobre el k-espacio</figcaption></figure>
+          <figure><canvas id="s3-psf" width="256" height="256"></canvas><figcaption>Respuesta a un punto (PSF)</figcaption></figure>
+          <figure><canvas id="s3-alias" width="256" height="256"></canvas><figcaption>Imagen con relleno de ceros</figcaption></figure>
+        </div>
+        <p class="vnote" id="s3-info"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== PASO 4 — RECON L1 ===================== -->
+  <section class="step" id="paso4">
+    <div class="step-head"><span class="step-no">4</span>
+      <h2>Ingrediente 3: reconstruir con la norma <em>ℓ₁</em>, no ℓ₂</h2></div>
+    <div class="step-grid">
+      <div class="prose">
+        <p>Tenemos pocas medidas (incoherentes) y sabemos que la señal es sparse. ¿Cómo la recuperamos?
+        Hay infinitas señales compatibles con las medidas; hay que elegir una.</p>
+        <p>Este es el experimento <b>original</b> de <a href="#refs">Candès, Romberg y Tao (2006)</a>:
+        una señal de <b id="s4-kshow">8</b> picos, de la que sólo conocemos <b id="s4-mshow">30%</b> de sus
+        frecuencias (elegidas al azar).</p>
+        <ul>
+          <li><b style="color:var(--bad)">ℓ₂ (mínima energía)</b>: la solución "natural" de mínimos cuadrados.
+          Reparte la energía por todas partes → un desastre oscilante. <b>Falla.</b></li>
+          <li><b style="color:var(--accent)">ℓ₁ (mínima suma de magnitudes)</b>: prefiere soluciones sparse.
+          <b>Recupera los picos casi exactos</b>, ¡con muchísimas menos medidas que Nyquist!</li>
+        </ul>
+        <p>Ese es el milagro: minimizar ℓ₁ es convexo (resoluble) y, bajo incoherencia + sparsity, da
+        <b>la</b> solución sparse correcta. Cambia la dispersión y las medidas y observa cuándo ℓ₁ "engancha".</p>
+        <div class="callout">
+          <b>Por qué ℓ₁.</b> La bola de la norma ℓ₁ tiene "picos" sobre los ejes: al inflarla hasta tocar
+          el conjunto de soluciones, toca en un punto <b>sparse</b>. La ℓ₂ (una esfera) toca en un punto denso.
+        </div>
+      </div>
+      <div class="viz">
+        <div class="cv-row"><figure class="wide"><canvas id="s4-plot" width="760" height="320"></canvas>
+          <figcaption>Señal real (gris) · recuperación ℓ₂ (rojo) · recuperación ℓ₁ (azul)</figcaption></figure></div>
+        <div class="ctrl">
+          <div class="lab"><span class="name">Picos (sparsity de la señal)</span><span class="val" id="s4-k-val">8</span></div>
+          <input id="s4-k" type="range" min="1" max="30" step="1" value="8" />
+        </div>
+        <div class="ctrl">
+          <div class="lab"><span class="name">Medidas conocidas (% de frecuencias)</span><span class="val" id="s4-m-val">30%</span></div>
+          <input id="s4-m" type="range" min="6" max="80" step="1" value="30" />
+        </div>
+        <div class="btnrow">
+          <button class="btn" id="s4-new">Nueva señal aleatoria</button>
+          <div class="metric grow"><span id="s4-status">—</span><small>resultado</small></div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><span id="s4-l2err" style="color:var(--bad)">—</span><small>error ℓ₂</small></div>
+          <div class="metric"><span id="s4-l1err" style="color:var(--accent)">—</span><small>error ℓ₁</small></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== PASO 5 — CS-MRI EN VIVO ===================== -->
+  <section class="step" id="paso5">
+    <div class="step-head"><span class="step-no">5</span>
+      <h2>Todo junto: <em>compressed sensing</em> en MRI, en vivo</h2></div>
+    <div class="step-intro prose">
+      <p>Juntamos los tres ingredientes. Tú eliges la imagen, <b>cómo</b> se submuestrea el k-espacio y
+      cuánto. Pulsa <b>Reconstruir</b> y mira cómo el algoritmo —umbralizado wavelet + consistencia con los
+      datos medidos— <b>disuelve los artefactos</b> iteración a iteración. Es el mismo método de
+      <a href="#refs">Sparse MRI (Lustig 2007)</a>, corriendo entero en tu navegador.</p>
+    </div>
+    <div class="lab-grid">
+      <div class="lab-panel">
+        <h3>Adquisición</h3>
+        <label class="minilab">Imagen</label>
+        <div class="seg" id="s5-imgsel" data-group></div>
+        <label class="minilab">Patrón de submuestreo</label>
+        <div class="seg" id="s5-masksel" data-group></div>
+        <div class="ctrl">
+          <div class="lab"><span class="name">Aceleración R</span><span class="val" id="s5-accel-val">4×</span></div>
+          <input id="s5-accel" type="range" min="2" max="8" step="1" value="4" />
+        </div>
+        <h3 style="margin-top:18px">Reconstrucción</h3>
+        <div class="ctrl">
+          <div class="lab"><span class="name">Fuerza de sparsity (λ)</span><span class="val" id="s5-lambda-val">0.020</span></div>
+          <input id="s5-lambda" type="range" min="0" max="80" step="1" value="20" />
+        </div>
+        <div class="btnrow">
+          <button class="btn primary" id="s5-run">▶ Reconstruir</button>
+          <button class="btn" id="s5-reset">Reiniciar</button>
+        </div>
+        <div class="progress"><div id="s5-bar"></div></div>
+        <p class="vnote" id="s5-iter">Listo.</p>
+      </div>
+      <div class="lab-stage">
+        <figure><canvas id="s5-orig" width="256" height="256"></canvas><figcaption>Original (referencia)</figcaption></figure>
+        <figure><canvas id="s5-kspace" width="256" height="256"></canvas><figcaption>k-espacio medido</figcaption></figure>
+        <figure><canvas id="s5-zf" width="256" height="256"></canvas>
+          <figcaption>Relleno con ceros · <b id="s5-zfpsnr">— dB</b></figcaption></figure>
+        <figure><canvas id="s5-cs" width="256" height="256"></canvas>
+          <figcaption>Compressed sensing · <b id="s5-cspsnr">— dB</b></figcaption></figure>
+      </div>
+    </div>
+    <p class="vnote tip">💡 Prueba: con <b>R alto</b>, compara “líneas regulares” (fantasmas que no se van) frente a
+    “densidad variable” (el ruido se disuelve). Pon λ a 0 para ver que sin sparsity no hay reconstrucción.
+    Y con <b>radial</b> recreas el experimento clásico de Candès–Romberg–Tao.</p>
+  </section>
+
+  <!-- ===================== MATES ===================== -->
+  <section class="step" id="mates">
+    <div class="step-head"><span class="step-no">∑</span><h2>Las matemáticas, en una pantalla</h2></div>
+    <div class="prose narrow">
+      <p>El compressed sensing en MRI resuelve un problema de optimización: busca la imagen
+      <b>más sparse</b> que <b>sigue siendo compatible</b> con lo que el escáner midió.</p>
+
+      <div class="equation">
+        <span class="eq-min">mín<sub>m</sub></span>
+        <span class="term t-sparse">‖ Ψ m ‖<sub>1</sub></span>
+        <span class="op">+ α</span>
+        <span class="term t-tv">TV(m)</span>
+        <span class="op">sujeto a</span>
+        <span class="term t-data">‖ F<sub>u</sub> m − y ‖<sub>2</sub> ≤ ε</span>
+      </div>
+      <div class="eq-legend">
+        <span><i class="t-sparse"></i><b>Sparsity:</b> Ψ es la transformada (wavelets) donde la imagen <i>m</i> tiene pocos coeficientes.</span>
+        <span><i class="t-tv"></i><b>Variación total:</b> penaliza el ruido manteniendo los bordes (opcional).</span>
+        <span><i class="t-data"></i><b>Consistencia:</b> F<sub>u</sub> es la Fourier submuestreada; la imagen debe explicar los datos medidos <i>y</i>.</span>
+      </div>
+
+      <h3>Los tres requisitos del CS (Lustig, Donoho &amp; Pauly, 2007)</h3>
+      <ol class="reqs">
+        <li><b>Sparsity en una transformada.</b> La imagen debe comprimirse bien (Paso&nbsp;2).</li>
+        <li><b>Incoherencia del submuestreo.</b> Los artefactos deben parecer ruido, no estructura (Paso&nbsp;3).</li>
+        <li><b>Reconstrucción no lineal.</b> Hay que imponer sparsity <i>y</i> consistencia con los datos (Pasos&nbsp;4–5).</li>
+      </ol>
+
+      <p>La garantía teórica viene de la <b>propiedad de isometría restringida</b> (RIP) y de las
+      <b>relaciones de incertidumbre</b> de Candès–Romberg–Tao: si la matriz de medida es suficientemente
+      incoherente y la señal es <i>k</i>-sparse, basta con del orden de <b>O(k·log&nbsp;N)</b> medidas —no las
+      <i>N</i> de Nyquist— y la minimización ℓ₁ <b>recupera la señal exactamente</b> con altísima probabilidad.</p>
+
+      <h3>¿Por qué importa en la clínica?</h3>
+      <p>Menos datos ⇒ <b>escáneres más cortos</b>: menos apneas, mejor en pediatría, y resonancia
+      <b>dinámica</b> (cardíaca, contraste) antes imposible. El CS se combina con <b>imagen en paralelo</b>
+      (SENSE/GRAPPA, varias bobinas) y hoy está en productos clínicos aprobados (p.&nbsp;ej.
+      <i>Compressed SENSE</i>, <i>HyperSense</i>, <i>Compressed Sensing Cardiac Cine</i>).</p>
+    </div>
+
+    <div class="prose narrow" id="refs">
+      <h3>Referencias (los papers originales)</h3>
+      <ul class="refs">
+        <li>E. J. Candès, J. Romberg, T. Tao. <b>“Robust uncertainty principles: exact signal reconstruction
+          from highly incomplete frequency information.”</b> <i>IEEE Trans. Inf. Theory</i> 52(2):489–509, 2006.
+          <a href="https://doi.org/10.1109/TIT.2005.862083" target="_blank" rel="noopener">doi:10.1109/TIT.2005.862083</a></li>
+        <li>D. L. Donoho. <b>“Compressed sensing.”</b> <i>IEEE Trans. Inf. Theory</i> 52(4):1289–1306, 2006.
+          <a href="https://doi.org/10.1109/TIT.2006.871582" target="_blank" rel="noopener">doi:10.1109/TIT.2006.871582</a></li>
+        <li>M. Lustig, D. Donoho, J. M. Pauly. <b>“Sparse MRI: the application of compressed sensing for rapid
+          MR imaging.”</b> <i>Magn. Reson. Med.</i> 58(6):1182–1195, 2007.
+          <a href="https://doi.org/10.1002/mrm.21391" target="_blank" rel="noopener">doi:10.1002/mrm.21391</a></li>
+        <li>M. Lustig, D. L. Donoho, J. M. Santos, J. M. Pauly. <b>“Compressed sensing MRI.”</b>
+          <i>IEEE Signal Process. Mag.</i> 25(2):72–82, 2008.
+          <a href="https://doi.org/10.1109/MSP.2007.914728" target="_blank" rel="noopener">doi:10.1109/MSP.2007.914728</a></li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    <p>Hecho como material educativo. Todo el cálculo (FFT, wavelets, reconstrucción) corre en tu navegador,
+    sin servidor. Imagen de cerebro: <i>“7&nbsp;Tesla MRI of the ex vivo human brain at 100 micron resolution”</i>,
+    Wikimedia Commons, <b>CC0</b> (dominio público). Fantoma de Shepp–Logan generado por código.</p>
+  </footer>
+</main>
+
+<script src="js/dsp.js"></script>
+<script src="js/images.js"></script>
+<script src="js/recon.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
