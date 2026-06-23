@@ -1,5 +1,5 @@
 /* =====================================================================
-   dsp.js — Núcleo de procesamiento de señal para el explicador de
+   dsp.js - Núcleo de procesamiento de señal para el explicador de
    Compressed Sensing.
 
    Contiene, en JavaScript puro y sin dependencias:

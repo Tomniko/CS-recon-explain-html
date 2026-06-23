@@ -33,7 +33,7 @@
       ¿Y si pudieras reconstruir una imagen midiendo <b>mucho menos</b> de lo que dicta el teorema de
       Nyquist? Eso es el <b>compressed sensing</b> (muestreo comprimido): la idea que permite acelerar
       la resonancia magnética <b>2×, 4× o más</b> sin perder diagnóstico. Esta página es una
-      <b>ruta de aprendizaje</b> con demos en vivo —arrastra, mueve y reconstruye tú mismo.
+      <b>ruta de aprendizaje</b> con demos en vivo: arrastra, mueve y reconstruye tú mismo.
     </p>
 
     <div class="hero-demo card">
@@ -47,9 +47,9 @@
         <div class="hero-tag right"><b>Compressed sensing</b></div>
       </div>
       <p class="hero-cap">
-        Misma adquisición (sólo el <b>25%</b> del k-espacio). A la izquierda, la reconstrucción ingenua;
+        Misma adquisición (sólo el <b>25%</b> del espacio-k). A la izquierda, la reconstrucción ingenua;
         a la derecha, compressed sensing. <b>Arrastra el divisor.</b>
-        Cerebro: 7T <i>ex vivo</i>, 100&nbsp;µm — dominio público (CC0).
+        Cerebro: 7T <i>ex vivo</i>, 100&nbsp;µm, dominio público (CC0).
       </p>
     </div>
 
@@ -57,35 +57,39 @@
     <p class="loadnote" id="loadnote">Cargando imágenes y motor de FFT…</p>
   </header>
 
-  <!-- ===================== PASO 1 — EL PROBLEMA ===================== -->
+  <!-- ===================== PASO 1 -EL PROBLEMA ===================== -->
   <section class="step" id="paso1">
     <div class="step-head"><span class="step-no">1</span>
-      <h2>La MRI mide en el <em>k-espacio</em>, y eso lleva tiempo</h2></div>
+      <h2>La MRI mide en el <em>espacio-k</em>, y eso lleva tiempo</h2></div>
     <div class="step-grid">
       <div class="prose">
         <p>Un escáner de resonancia no fotografía el cuerpo: <b>mide la transformada de Fourier de la imagen</b>,
-        el llamado <b>k-espacio</b>. Cada punto del k-espacio es una frecuencia espacial; el <b>centro</b> guarda
+        el llamado <b>espacio-k</b>. Cada punto del espacio-k es una frecuencia espacial; el <b>centro</b> guarda
         el contraste general y los <b>bordes</b> guardan el detalle fino.</p>
-        <p>El problema: el k-espacio se recorre <b>poco a poco</b> (línea a línea), y cada línea cuesta tiempo.
+        <p>El problema: el espacio-k se recorre <b>poco a poco</b> (línea a línea), y cada línea cuesta tiempo.
         El teorema de muestreo de <b>Nyquist</b> dice que para no tener <i>aliasing</i> hay que llenarlo entero.
-        <b>Más líneas ⇒ más resolución, pero también más minutos</b> dentro del tubo.</p>
-        <p>La tentación ingenua: medir sólo el centro (las bajas frecuencias). Pruébalo con el control:
-        verás que ganas velocidad pero <b>pierdes nitidez</b> — se vuelve borroso. Tirar de información sin más
-        no funciona. Necesitamos algo más astuto.</p>
+        <b>Más líneas ⇒ más resolución, pero también más minutos</b> dentro del scanner.</p>
+        <p>La intuición ingenua: medir sólo el centro (las bajas frecuencias). Pruébalo con el control:
+        verás que ganas velocidad pero <b>pierdes nitidez</b>, se vuelve borroso, y al recortar bruscamente el
+        espacio-k aparecen anillos (el <b>efecto de Gibbs</b>, muy visible en el fantoma). Adquirir menos datos,
+        es decir, tener menos información, no basta por sí solo. Necesitamos algo más astuto.</p>
         <div class="callout">
-          <b>Idea clave.</b> El tiempo de escaneo es (aprox.) proporcional al número de líneas de k-espacio
-          que adquieres. Reducirlas a la mitad ≈ reducir el tiempo a la mitad.
+          <b>Idea clave.</b> El tiempo de adquisición ≈ <b>TR × número de líneas de espacio-k</b>. El TR
+          (tiempo de repetición) es lo que tarda cada línea; por eso adquirir menos líneas reduce
+          directamente el tiempo de escaneo: la mitad de líneas ≈ la mitad de tiempo.
         </div>
       </div>
       <div class="viz">
         <div class="seg" id="s1-imgsel" data-group></div>
+        <label class="minilab">Vista del espacio-k</label>
+        <div class="seg" id="s1-kmode" data-group></div>
         <div class="cv-row">
-          <figure><canvas id="s1-img" width="256" height="256"></canvas><figcaption>Imagen</figcaption></figure>
-          <figure><canvas id="s1-kspace" width="256" height="256"></canvas><figcaption>k-espacio (log·magnitud)</figcaption></figure>
-          <figure><canvas id="s1-recon" width="256" height="256"></canvas><figcaption id="s1-recon-cap">Reconstruida</figcaption></figure>
+          <figure><canvas class="zoom" id="s1-img" width="256" height="256"></canvas><figcaption>Imagen</figcaption></figure>
+          <figure><canvas class="zoom" id="s1-kspace" width="256" height="256"></canvas><figcaption id="s1-kspace-cap">espacio-k (magnitud)</figcaption></figure>
+          <figure><canvas class="zoom" id="s1-recon" width="256" height="256"></canvas><figcaption id="s1-recon-cap">Reconstruida</figcaption></figure>
         </div>
         <div class="ctrl">
-          <div class="lab"><span class="name">Fracción del k-espacio adquirida (sólo el centro)</span>
+          <div class="lab"><span class="name">Fracción del espacio-k adquirida (sólo el centro)</span>
             <span class="val" id="s1-frac-val">100%</span></div>
           <input id="s1-frac" type="range" min="2" max="100" step="1" value="100" />
         </div>
@@ -97,17 +101,17 @@
     </div>
   </section>
 
-  <!-- ===================== PASO 2 — SPARSITY ===================== -->
+  <!-- ===================== PASO 2 -SPARSITY ===================== -->
   <section class="step" id="paso2">
     <div class="step-head"><span class="step-no">2</span>
-      <h2>Ingrediente 1: las imágenes son <em>sparse</em> (comprimibles)</h2></div>
+      <h2>Ingrediente 1: las imágenes son <em>sparse</em> (ralas)</h2></div>
     <div class="step-grid">
       <div class="prose">
         <p>Aquí está la primera grieta en el muro de Nyquist. Una imagen médica <b>no</b> es ruido: tiene
-        estructura. Si la pasamos a una base adecuada —por ejemplo <b>wavelets</b>— casi todos los coeficientes
+        estructura. Si la pasamos a una base adecuada (por ejemplo <b>wavelets</b>) casi todos los coeficientes
         son <b>diminutos</b>. La imagen "vive" en unos pocos coeficientes grandes: es <b>sparse</b>.</p>
         <p>Esto es exactamente lo que hace JPEG-2000 al comprimir. Mueve el control para <b>quedarte sólo con
-        el X% de coeficientes más grandes</b> y tirar el resto: la imagen apenas cambia. El mapa de la derecha
+        el X% de coeficientes más grandes</b> y se descarta el resto: la imagen apenas cambia. El mapa de la derecha
         muestra los coeficientes wavelet (casi todo negro = casi todo cero).</p>
         <p>La pregunta incómoda que lanzó el compressed sensing:
         <b>si vamos a tirar el 90% de la información al comprimir, ¿por qué molestarnos en medirla?</b>
@@ -121,8 +125,8 @@
       <div class="viz">
         <div class="seg" id="s2-imgsel" data-group></div>
         <div class="cv-row">
-          <figure><canvas id="s2-img" width="256" height="256"></canvas><figcaption>Reconstruida con los mayores coef.</figcaption></figure>
-          <figure><canvas id="s2-wav" width="256" height="256"></canvas><figcaption>Coeficientes wavelet (Haar)</figcaption></figure>
+          <figure><canvas class="zoom" id="s2-img" width="256" height="256"></canvas><figcaption>Reconstruida con los mayores coef.</figcaption></figure>
+          <figure><canvas class="zoom" id="s2-wav" width="256" height="256"></canvas><figcaption>Coeficientes wavelet (Haar)</figcaption></figure>
         </div>
         <div class="ctrl">
           <div class="lab"><span class="name">Coeficientes conservados (los más grandes)</span>
@@ -137,25 +141,25 @@
     </div>
   </section>
 
-  <!-- ===================== PASO 3 — INCOHERENCIA ===================== -->
+  <!-- ===================== PASO 3 -INCOHERENCIA ===================== -->
   <section class="step" id="paso3">
     <div class="step-head"><span class="step-no">3</span>
       <h2>Ingrediente 2: submuestrear de forma <em>incoherente</em></h2></div>
     <div class="step-grid">
       <div class="prose">
-        <p>Si vamos a saltarnos líneas del k-espacio, <b>cómo</b> nos las saltamos lo cambia todo.</p>
+        <p>Si vamos a saltarnos líneas del espacio-k, <b>cómo</b> nos las saltamos lo cambia todo.</p>
         <p><b>Regular</b> (una sí, una no): los errores se concentran en <b>copias fantasma</b> nítidas
         de la imagen (<i>aliasing</i> coherente). Imposible distinguirlas de la anatomía real.</p>
         <p><b>Aleatorio / densidad variable</b>: el error se reparte como un <b>ruido tenue</b> por toda la
         imagen (artefacto <b>incoherente</b>). Y el ruido difuso <b>sí</b> se puede quitar después, porque no
         se parece a una imagen sparse.</p>
-        <p>Mira la <b>respuesta a un punto</b> (PSF): el pico central es la señal; lo de alrededor es la
+        <p>Mira la <b>respuesta a un punto</b> (PSF): el peak central es la señal; lo de alrededor es la
         "contaminación" que genera el submuestreo. Con muestreo aleatorio es un fondo plano de ruido; con
         muestreo regular son réplicas afiladas. Esta figura es el corazón del análisis de
         <a href="#refs">Lustig <i>et al.</i></a></p>
         <div class="callout">
           <b>Incoherencia.</b> El submuestreo debe convertir el <i>aliasing</i> en algo parecido al ruido.
-          En la práctica: <b>muestreo aleatorio con densidad variable</b> (más denso en el centro del k-espacio).
+          En la práctica: <b>muestreo aleatorio con densidad variable</b> (más denso en el centro del espacio-k).
         </div>
       </div>
       <div class="viz">
@@ -167,36 +171,36 @@
           <input id="s3-accel" type="range" min="2" max="8" step="1" value="4" />
         </div>
         <div class="cv-row three">
-          <figure><canvas id="s3-mask" width="256" height="256"></canvas><figcaption>Máscara sobre el k-espacio</figcaption></figure>
-          <figure><canvas id="s3-psf" width="256" height="256"></canvas><figcaption>Respuesta a un punto (PSF)</figcaption></figure>
-          <figure><canvas id="s3-alias" width="256" height="256"></canvas><figcaption>Imagen con relleno de ceros</figcaption></figure>
+          <figure><canvas class="zoom" id="s3-mask" width="256" height="256"></canvas><figcaption>Máscara sobre el espacio-k</figcaption></figure>
+          <figure><canvas class="zoom" id="s3-psf" width="256" height="256"></canvas><figcaption>Respuesta a un punto (PSF)</figcaption></figure>
+          <figure><canvas class="zoom" id="s3-alias" width="256" height="256"></canvas><figcaption>Imagen con relleno de ceros</figcaption></figure>
         </div>
         <p class="vnote" id="s3-info"></p>
       </div>
     </div>
   </section>
 
-  <!-- ===================== PASO 4 — RECON L1 ===================== -->
+  <!-- ===================== PASO 4 -RECON L1 ===================== -->
   <section class="step" id="paso4">
     <div class="step-head"><span class="step-no">4</span>
       <h2>Ingrediente 3: reconstruir con la norma <em>ℓ₁</em>, no ℓ₂</h2></div>
     <div class="step-grid">
       <div class="prose">
-        <p>Tenemos pocas medidas (incoherentes) y sabemos que la señal es sparse. ¿Cómo la recuperamos?
+        <p>Tenemos pocos datos/adquisiciones (incoherentes) y sabemos que la señal es sparse. ¿Cómo la recuperamos?
         Hay infinitas señales compatibles con las medidas; hay que elegir una.</p>
         <p>Este es el experimento <b>original</b> de <a href="#refs">Candès, Romberg y Tao (2006)</a>:
-        una señal de <b id="s4-kshow">8</b> picos, de la que sólo conocemos <b id="s4-mshow">30%</b> de sus
+        una señal de <b id="s4-kshow">8</b> peaks, de la que sólo conocemos <b id="s4-mshow">30%</b> de sus
         frecuencias (elegidas al azar).</p>
         <ul>
           <li><b style="color:var(--bad)">ℓ₂ (mínima energía)</b>: la solución "natural" de mínimos cuadrados.
           Reparte la energía por todas partes → un desastre oscilante. <b>Falla.</b></li>
           <li><b style="color:var(--accent)">ℓ₁ (mínima suma de magnitudes)</b>: prefiere soluciones sparse.
-          <b>Recupera los picos casi exactos</b>, ¡con muchísimas menos medidas que Nyquist!</li>
+          <b>Recupera los peaks casi exactos</b>, ¡con muchísimas menos medidas que Nyquist!</li>
         </ul>
         <p>Ese es el milagro: minimizar ℓ₁ es convexo (resoluble) y, bajo incoherencia + sparsity, da
         <b>la</b> solución sparse correcta. Cambia la dispersión y las medidas y observa cuándo ℓ₁ "engancha".</p>
         <div class="callout">
-          <b>Por qué ℓ₁.</b> La bola de la norma ℓ₁ tiene "picos" sobre los ejes: al inflarla hasta tocar
+          <b>Por qué ℓ₁.</b> La bola de la norma ℓ₁ tiene "peaks" sobre los ejes: al inflarla hasta tocar
           el conjunto de soluciones, toca en un punto <b>sparse</b>. La ℓ₂ (una esfera) toca en un punto denso.
         </div>
       </div>
@@ -204,7 +208,7 @@
         <div class="cv-row"><figure class="wide"><canvas id="s4-plot" width="760" height="320"></canvas>
           <figcaption>Señal real (gris) · recuperación ℓ₂ (rojo) · recuperación ℓ₁ (azul)</figcaption></figure></div>
         <div class="ctrl">
-          <div class="lab"><span class="name">Picos (sparsity de la señal)</span><span class="val" id="s4-k-val">8</span></div>
+          <div class="lab"><span class="name">Peaks (sparsity de la señal)</span><span class="val" id="s4-k-val">8</span></div>
           <input id="s4-k" type="range" min="1" max="30" step="1" value="8" />
         </div>
         <div class="ctrl">
@@ -213,24 +217,24 @@
         </div>
         <div class="btnrow">
           <button class="btn" id="s4-new">Nueva señal aleatoria</button>
-          <div class="metric grow"><span id="s4-status">—</span><small>resultado</small></div>
+          <div class="metric grow"><span id="s4-status">…</span><small>resultado</small></div>
         </div>
         <div class="metrics">
-          <div class="metric"><span id="s4-l2err" style="color:var(--bad)">—</span><small>error ℓ₂</small></div>
-          <div class="metric"><span id="s4-l1err" style="color:var(--accent)">—</span><small>error ℓ₁</small></div>
+          <div class="metric"><span id="s4-l2err" style="color:var(--bad)">…</span><small>error ℓ₂</small></div>
+          <div class="metric"><span id="s4-l1err" style="color:var(--accent)">…</span><small>error ℓ₁</small></div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- ===================== PASO 5 — CS-MRI EN VIVO ===================== -->
+  <!-- ===================== PASO 5 -CS-MRI EN VIVO ===================== -->
   <section class="step" id="paso5">
     <div class="step-head"><span class="step-no">5</span>
       <h2>Todo junto: <em>compressed sensing</em> en MRI, en vivo</h2></div>
     <div class="step-intro prose">
-      <p>Juntamos los tres ingredientes. Tú eliges la imagen, <b>cómo</b> se submuestrea el k-espacio y
-      cuánto. Pulsa <b>Reconstruir</b> y mira cómo el algoritmo —umbralizado wavelet + consistencia con los
-      datos medidos— <b>disuelve los artefactos</b> iteración a iteración. Es el mismo método de
+      <p>Juntamos los tres ingredientes. Tú eliges la imagen, <b>cómo</b> se submuestrea el espacio-k y
+      cuánto. Pulsa <b>Reconstruir</b> y mira cómo el algoritmo (umbralizado wavelet + consistencia con los
+      datos medidos) <b>disuelve los artefactos</b> iteración a iteración. Es el mismo método de
       <a href="#refs">Sparse MRI (Lustig 2007)</a>, corriendo entero en tu navegador.</p>
     </div>
     <div class="lab-grid">
@@ -257,12 +261,12 @@
         <p class="vnote" id="s5-iter">Listo.</p>
       </div>
       <div class="lab-stage">
-        <figure><canvas id="s5-orig" width="256" height="256"></canvas><figcaption>Original (referencia)</figcaption></figure>
-        <figure><canvas id="s5-kspace" width="256" height="256"></canvas><figcaption>k-espacio medido</figcaption></figure>
-        <figure><canvas id="s5-zf" width="256" height="256"></canvas>
-          <figcaption>Relleno con ceros · <b id="s5-zfpsnr">— dB</b></figcaption></figure>
-        <figure><canvas id="s5-cs" width="256" height="256"></canvas>
-          <figcaption>Compressed sensing · <b id="s5-cspsnr">— dB</b></figcaption></figure>
+        <figure><canvas class="zoom" id="s5-orig" width="256" height="256"></canvas><figcaption>Original (referencia)</figcaption></figure>
+        <figure><canvas class="zoom" id="s5-kspace" width="256" height="256"></canvas><figcaption>espacio-k medido</figcaption></figure>
+        <figure><canvas class="zoom" id="s5-zf" width="256" height="256"></canvas>
+          <figcaption>Relleno con ceros · <b id="s5-zfpsnr">… dB</b></figcaption></figure>
+        <figure><canvas class="zoom" id="s5-cs" width="256" height="256"></canvas>
+          <figcaption>Compressed sensing · <b id="s5-cspsnr">… dB</b></figcaption></figure>
       </div>
     </div>
     <p class="vnote tip">💡 Prueba: con <b>R alto</b>, compara “líneas regulares” (fantasmas que no se van) frente a
@@ -300,8 +304,8 @@
 
       <p>La garantía teórica viene de la <b>propiedad de isometría restringida</b> (RIP) y de las
       <b>relaciones de incertidumbre</b> de Candès–Romberg–Tao: si la matriz de medida es suficientemente
-      incoherente y la señal es <i>k</i>-sparse, basta con del orden de <b>O(k·log&nbsp;N)</b> medidas —no las
-      <i>N</i> de Nyquist— y la minimización ℓ₁ <b>recupera la señal exactamente</b> con altísima probabilidad.</p>
+      incoherente y la señal es <i>k</i>-sparse, basta con del orden de <b>O(k·log&nbsp;N)</b> medidas (no las
+      <i>N</i> de Nyquist) y la minimización ℓ₁ <b>recupera la señal exactamente</b> con altísima probabilidad.</p>
 
       <h3>¿Por qué importa en la clínica?</h3>
       <p>Menos datos ⇒ <b>escáneres más cortos</b>: menos apneas, mejor en pediatría, y resonancia
@@ -334,6 +338,15 @@
     Wikimedia Commons, <b>CC0</b> (dominio público). Fantoma de Shepp–Logan generado por código.</p>
   </footer>
 </main>
+
+<!-- Lightbox para hacer zoom sobre las imágenes -->
+<div id="lightbox" class="lb" hidden>
+  <button id="lb-close" class="lb-close" aria-label="Cerrar">×</button>
+  <figure class="lb-fig">
+    <canvas id="lb-cv" width="640" height="640"></canvas>
+    <figcaption id="lb-cap"></figcaption>
+  </figure>
+</div>
 
 <script src="js/dsp.js"></script>
 <script src="js/images.js"></script>

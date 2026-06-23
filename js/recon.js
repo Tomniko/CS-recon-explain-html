@@ -1,5 +1,5 @@
 /* =====================================================================
-   recon.js — Reconstrucción por Compressed Sensing para MRI.
+   recon.js - Reconstrucción por Compressed Sensing para MRI.
 
    Resuelve (de forma aproximada)   min ‖Ψx‖₁  s.a.  F_u x = y
    con un esquema de umbralizado iterativo + consistencia de datos (POCS):

@@ -6,20 +6,20 @@ resonancia magnética** reconstruyendo imágenes con muchos menos datos de los
 que exige Nyquist.
 
 Inspirada en el formato de "ruta de aprendizaje" de explicadores como el de los
-Vision Transformers. Todo el cálculo —FFT, wavelets y la reconstrucción
-iterativa— corre **en el navegador**, sin servidor.
+Vision Transformers. Todo el cálculo (FFT, wavelets y la reconstrucción
+iterativa) corre **en el navegador**, sin servidor.
 
 ## La ruta
 
-1. **El problema** — la MRI mide el *k-espacio* línea a línea; más líneas = más tiempo.
-2. **Sparsity** — las imágenes se comprimen: viven en pocos coeficientes wavelet.
-3. **Incoherencia** — submuestrear al azar convierte el *aliasing* en ruido quitable
+1. **El problema**: la MRI mide el *espacio-k* línea a línea; más líneas = más tiempo.
+2. **Sparsity**: las imágenes se comprimen: viven en pocos coeficientes wavelet.
+3. **Incoherencia**: submuestrear al azar convierte el *aliasing* en ruido quitable
    (PSF de muestreo aleatorio vs. regular).
-4. **Reconstrucción ℓ₁** — el experimento original de Candès–Romberg–Tao: ℓ₁ recupera
+4. **Reconstrucción ℓ₁**: el experimento original de Candès–Romberg–Tao: ℓ₁ recupera
    una señal dispersa exacta donde mínimos cuadrados (ℓ₂) fracasa.
-5. **CS-MRI en vivo** — elige imagen, patrón de submuestreo y aceleración, y mira cómo
+5. **CS-MRI en vivo**: elige imagen, patrón de submuestreo y aceleración, y mira cómo
    el algoritmo (umbralizado wavelet + consistencia de datos) disuelve los artefactos.
-6. **Las matemáticas** — el problema de optimización, los tres requisitos del CS y las
+6. **Las matemáticas**: el problema de optimización, los tres requisitos del CS y las
    referencias a los papers originales.
 
 ## Basado en
@@ -45,7 +45,7 @@ python3 -m http.server 8000
 index.html        estructura y contenido (en español)
 css/style.css     tema oscuro y maquetación
 js/dsp.js         FFT 1D/2D + wavelet de Haar + métricas  (validado contra numpy)
-js/images.js      fantoma de Shepp–Logan + máscaras de muestreo del k-espacio
+js/images.js      fantoma de Shepp–Logan + máscaras de muestreo del espacio-k
 js/recon.js       reconstrucción CS (umbralizado iterativo + POCS), paso a paso
 js/app.js         interacción y demos
 assets/           imágenes (ver assets/CREDITS.md)

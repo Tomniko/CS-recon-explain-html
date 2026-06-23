@@ -1,13 +1,13 @@
 /* =====================================================================
-   images.js — Imágenes de prueba y máscaras de muestreo del k-espacio.
+   images.js - Imágenes de prueba y máscaras de muestreo del k-espacio.
 
      · sheppLogan(n)          fantoma de Shepp–Logan (dominio público)
      · loadImageToFloat(...)  carga una imagen real a Float64Array [0,1]
      · máscaras de submuestreo del k-espacio:
-         variableDensityMask  (densidad variable 2D — el caso ideal de CS)
-         randomLinesMask      (líneas de fase aleatorias — Cartesiano real)
-         uniformLinesMask     (líneas equiespaciadas — produce "fantasmas")
-         radialMask           (radios — adquisición no Cartesiana)
+         variableDensityMask  (densidad variable 2D - el caso ideal de CS)
+         randomLinesMask      (líneas de fase aleatorias - Cartesiano real)
+         uniformLinesMask     (líneas equiespaciadas - produce "fantasmas")
+         radialMask           (radios - adquisición no Cartesiana)
 
    Las máscaras devuelven Uint8Array(n*n): 1 = muestreado, 0 = no medido,
    con el centro del k-espacio (DC) en el centro del array.

@@ -1,5 +1,5 @@
 /* =====================================================================
-   app.js — Lógica e interacción de la ruta de aprendizaje de CS-MRI.
+   app.js - Lógica e interacción de la ruta de aprendizaje de CS-MRI.
    Conecta los módulos dsp / images / recon con la interfaz.
    ===================================================================== */
 (function () {
@@ -17,6 +17,16 @@
     const s = v * (INFERNO.length - 1), i = Math.floor(s), f = s - i;
     const a = INFERNO[i], b = INFERNO[Math.min(i + 1, INFERNO.length - 1)];
     return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+  }
+  // Mapa cíclico (rueda de tono) para la FASE, que es periódica.
+  function hsv2rgb(h) {
+    const i = Math.floor(h * 6), f = h * 6 - i, q = 1 - f; let r, g, b;
+    switch (((i % 6) + 6) % 6) {
+      case 0: r = 1; g = f; b = 0; break; case 1: r = q; g = 1; b = 0; break;
+      case 2: r = 0; g = 1; b = f; break; case 3: r = 0; g = q; b = 1; break;
+      case 4: r = f; g = 0; b = 1; break; default: r = 1; g = 0; b = q;
+    }
+    return [r * 255, g * 255, b * 255];
   }
 
   /* ------------------------- Renderizado ------------------------- */
@@ -40,10 +50,21 @@
     }
     ctx.putImageData(out, 0, 0);
   }
-  // k-espacio: log-magnitud con inferno.
-  function renderKspace(canvas, re, im, n) {
-    const mag = new Float64Array(n * n);
-    for (let i = 0; i < n * n; i++) mag[i] = Math.log(1 + Math.hypot(re[i], im[i]));
+  // espacio-k: 'mag' = log-magnitud (inferno); 'phase' = fase (rueda de tono).
+  function renderKspace(canvas, re, im, n, mode) {
+    const N2 = n * n;
+    if (mode === 'phase') {
+      const ctx = canvas.getContext('2d'), out = ctx.createImageData(n, n), px = out.data;
+      for (let i = 0; i < N2; i++) {
+        const j = i * 4; px[j + 3] = 255;
+        if (re[i] === 0 && im[i] === 0) { px[j] = px[j + 1] = px[j + 2] = 0; continue; }
+        const c = hsv2rgb((Math.atan2(im[i], re[i]) + Math.PI) / (2 * Math.PI));
+        px[j] = c[0]; px[j + 1] = c[1]; px[j + 2] = c[2];
+      }
+      ctx.putImageData(out, 0, 0); return;
+    }
+    const mag = new Float64Array(N2);
+    for (let i = 0; i < N2; i++) mag[i] = Math.log(1 + Math.hypot(re[i], im[i]));
     render(canvas, mag, n, { cmap: inferno });
   }
 
@@ -64,7 +85,7 @@
       try { REG[k].data = IMG.loadImageToFloat(await loadPNG(REG[k].src), N); }
       catch (e) { REG[k].data = IMG.sheppLogan(N); } // respaldo si falla la carga
     }
-    // cache de k-espacio por imagen
+    // cache de espacio-k por imagen
     for (const k in REG) {
       const re = REG[k].data.slice(), im = new Float64Array(N * N);
       dsp.fft2c(re, im, N); REG[k].kRe = re; REG[k].kIm = im;
@@ -135,23 +156,25 @@
   }
   function clamp01(a) { const o = new Float64Array(a.length); for (let i = 0; i < a.length; i++) o[i] = a[i] < 0 ? 0 : a[i] > 1 ? 1 : a[i]; return o; }
 
-  /* ====================== PASO 1 — k-espacio ==================== */
+  /* ====================== PASO 1 - espacio-k ==================== */
   function initStep1() {
-    let cur = 'phantom';
+    let cur = 'phantom', kmode = 'mag';
     seg($('s1-imgsel'), IMGITEMS, cur, id => { cur = id; redraw(); });
+    seg($('s1-kmode'), [{ id: 'mag', label: 'Magnitud' }, { id: 'phase', label: 'Fase' }], kmode, id => { kmode = id; redraw(); });
     $('s1-frac').addEventListener('input', redraw);
     function redraw() {
       const data = getData(cur);
-      render($('s1-img'), data, N);
-      renderKspace($('s1-kspace'), REG[cur].kRe, REG[cur].kIm, N);
-      const fracPct = +$('s1-frac').value;
-      const frac = fracPct / 100;
+      render($('s1-img'), data, N, { lo: 0, hi: 1 });
+      const fracPct = +$('s1-frac').value, frac = fracPct / 100;
       const side = Math.max(2, Math.round(Math.sqrt(frac) * N));
       const lo = (N - side) >> 1, hiIdx = lo + side;
+      // espacio-k recortado al centro: así se ve la aceleración (y el efecto de Gibbs)
       const re = REG[cur].kRe.slice(), im = REG[cur].kIm.slice();
       for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
         if (r < lo || r >= hiIdx || c < lo || c >= hiIdx) { re[r * N + c] = 0; im[r * N + c] = 0; }
       }
+      renderKspace($('s1-kspace'), re, im, N, kmode);
+      $('s1-kspace-cap').textContent = 'espacio-k (' + (kmode === 'phase' ? 'fase' : 'magnitud') + (fracPct < 100 ? ', recortado' : '') + ')';
       dsp.ifft2c(re, im, N);
       const recon = new Float64Array(N * N); for (let i = 0; i < N * N; i++) recon[i] = re[i];
       render($('s1-recon'), clamp01(recon), N, { lo: 0, hi: 1 });
@@ -159,12 +182,12 @@
       $('s1-frac-val').textContent = fracPct + '%';
       $('s1-speed').textContent = accel.toFixed(1) + '×';
       $('s1-psnr').textContent = fracPct >= 100 ? '∞ dB' : dsp.psnr(data, clamp01(recon), 1).toFixed(1) + ' dB';
-      $('s1-recon-cap').textContent = fracPct >= 100 ? 'Reconstruida (completa)' : 'Reconstruida (borrosa)';
+      $('s1-recon-cap').textContent = fracPct >= 100 ? 'Reconstruida (completa)' : 'Reconstruida (anillos de Gibbs)';
     }
     redraw();
   }
 
-  /* ====================== PASO 2 — sparsity ==================== */
+  /* ====================== PASO 2 - sparsity ==================== */
   function initStep2() {
     let cur = 'axial';
     seg($('s2-imgsel'), IMGITEMS, cur, id => { cur = id; redraw(); });
@@ -193,7 +216,7 @@
     redraw();
   }
 
-  /* =================== PASO 3 — incoherencia =================== */
+  /* =================== PASO 3 - incoherencia =================== */
   const MASKITEMS = [
     { id: 'vardens', label: 'Densidad variable' },
     { id: 'lines', label: 'Líneas aleatorias' },
@@ -232,12 +255,12 @@
       const zf = new Float64Array(N * N); for (let i = 0; i < N * N; i++) zf[i] = zr[i];
       render($('s3-alias'), clamp01(zf), N, { lo: 0, hi: 1 });
       const frac = IMG.maskFraction(mask) * 100;
-      $('s3-info').innerHTML = `Muestreado: <b>${frac.toFixed(0)}%</b> del k-espacio (R≈${(100 / frac).toFixed(1)}×). ${MASKNOTE[mtype]}`;
+      $('s3-info').innerHTML = `Muestreado: <b>${frac.toFixed(0)}%</b> del espacio-k (R≈${(100 / frac).toFixed(1)}×). ${MASKNOTE[mtype]}`;
     }
     redraw();
   }
 
-  /* ============= PASO 4 — recuperación ℓ1 vs ℓ2 (1D) =========== */
+  /* ============= PASO 4 - recuperación ℓ1 vs ℓ2 (1D) =========== */
   const N1 = 256;
   function fft1(re, im, inv) {
     dsp.fft1d(re, im, dsp.makePlan(re.length), inv);
@@ -318,7 +341,7 @@
     run();
   }
 
-  /* ================= PASO 5 — CS-MRI en vivo =================== */
+  /* ================= PASO 5 - CS-MRI en vivo =================== */
   function initStep5() {
     let cur = 'axial', mtype = 'vardens', anim = null, st = null;
     seg($('s5-imgsel'), IMGITEMS, cur, id => { cur = id; rebuild(); });
@@ -343,7 +366,7 @@
       $('s5-cspsnr').textContent = st.psnr().toFixed(1) + ' dB';
       $('s5-bar').style.width = '0%';
       const frac = IMG.maskFraction(mask) * 100;
-      $('s5-iter').innerHTML = `Listo · muestreado ${frac.toFixed(0)}% del k-espacio. Pulsa <b>Reconstruir</b>.`;
+      $('s5-iter').innerHTML = `Listo · muestreado ${frac.toFixed(0)}% del espacio-k. Pulsa <b>Reconstruir</b>.`;
     }
     const TOTAL = 60;
     function play() {
@@ -369,12 +392,36 @@
     rebuild();
   }
 
+  /* ===================== Lightbox (zoom) ====================== */
+  function initLightbox() {
+    const lb = $('lightbox'), cv = $('lb-cv'), cap = $('lb-cap');
+    function open(srcCanvas, caption) {
+      const ctx = cv.getContext('2d');
+      ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      ctx.drawImage(srcCanvas, 0, 0, cv.width, cv.height);
+      cap.textContent = caption || '';
+      lb.hidden = false;
+    }
+    const close = () => { lb.hidden = true; };
+    document.querySelectorAll('canvas.zoom').forEach(c => {
+      c.addEventListener('click', () => {
+        const fig = c.closest('figure'), fc = fig && fig.querySelector('figcaption');
+        open(c, fc ? fc.textContent.trim() : '');
+      });
+    });
+    $('lb-close').addEventListener('click', close);
+    lb.addEventListener('click', e => { if (e.target === lb) close(); });
+    addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  }
+
   /* ============================ INIT =========================== */
   async function init() {
     await buildImages();
     $('loadnote').classList.add('done');
     initRail(); initHero();
     initStep1(); initStep2(); initStep3(); initStep4(); initStep5();
+    initLightbox();
   }
   if (document.readyState === 'loading') addEventListener('DOMContentLoaded', init); else init();
 })();
