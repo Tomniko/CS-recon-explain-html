@@ -52,10 +52,10 @@ assets/           imágenes (ver assets/CREDITS.md)
 tools/            tests de validación en Node (desarrollo)
 ```
 
-## Publicar en GitHub Pages
+## Publicado en
 
 Actualmente se puede revisar en el siguiente link:
-[https://tomniko.github.io/CS-recon-explain-html/](https://tomniko.github.io/CS-recon-explain-html/)
+GitHub Pages → [https://tomniko.github.io/CS-recon-explain-html/](https://tomniko.github.io/CS-recon-explain-html/)
 
 ## Créditos de imágenes
 
