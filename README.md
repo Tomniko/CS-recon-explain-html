@@ -54,8 +54,8 @@ tools/            tests de validación en Node (desarrollo)
 
 ## Publicar en GitHub Pages
 
-El repositorio ya incluye `.nojekyll`. Sube el contenido a una rama (p. ej. `main`)
-y en *Settings → Pages* elige esa rama y la carpeta raíz (`/`).
+Actualmente se puede revisar en el siguiente link:
+[https://tomniko.github.io/CS-recon-explain-html/](https://tomniko.github.io/CS-recon-explain-html/)
 
 ## Créditos de imágenes
 
