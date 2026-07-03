@@ -304,19 +304,19 @@
   }
   function drawPlot(cv, sig, l2, l1) {
     const ctx = cv.getContext('2d'), W = cv.width, H = cv.height, pad = 18;
-    ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#04060c'; ctx.fillRect(0, 0, W, H);
+    ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#fdfbf5'; ctx.fillRect(0, 0, W, H);
     let mx = 0.6; for (let i = 0; i < N1; i++) mx = Math.max(mx, Math.abs(sig[i]), Math.abs(l1[i]), Math.abs(l2[i]));
     const x = i => pad + (W - 2 * pad) * i / (N1 - 1);
     const y = v => H / 2 - (H / 2 - pad) * (v / mx);
-    ctx.strokeStyle = '#22304a'; ctx.beginPath(); ctx.moveTo(pad, H / 2); ctx.lineTo(W - pad, H / 2); ctx.stroke();
-    // ℓ2 (rojo, denso)
-    ctx.strokeStyle = 'rgba(255,107,107,.9)'; ctx.lineWidth = 1.2; ctx.beginPath();
+    ctx.strokeStyle = '#d2c4a8'; ctx.beginPath(); ctx.moveTo(pad, H / 2); ctx.lineTo(W - pad, H / 2); ctx.stroke();
+    // ℓ2 (ladrillo, denso)
+    ctx.strokeStyle = 'rgba(176,66,58,.9)'; ctx.lineWidth = 1.3; ctx.beginPath();
     for (let i = 0; i < N1; i++) { const px = x(i), py = y(l2[i]); i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); } ctx.stroke();
     // señal real (tallos grises)
-    ctx.strokeStyle = 'rgba(160,176,200,.55)'; ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(86,75,60,.5)'; ctx.lineWidth = 2;
     for (let i = 0; i < N1; i++) if (Math.abs(sig[i]) > 1e-6) { ctx.beginPath(); ctx.moveTo(x(i), H / 2); ctx.lineTo(x(i), y(sig[i])); ctx.stroke(); }
-    // ℓ1 (puntos azules)
-    ctx.fillStyle = '#2fd6c3';
+    // ℓ1 (puntos teal)
+    ctx.fillStyle = '#1d6b5e';
     for (let i = 0; i < N1; i++) if (Math.abs(l1[i]) > 0.03 * mx) { ctx.beginPath(); ctx.arc(x(i), y(l1[i]), 3, 0, 7); ctx.fill(); }
   }
   function initStep4() {
